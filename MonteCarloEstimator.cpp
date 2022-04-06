@@ -30,17 +30,18 @@ double MontegarloEstimate(double InLowerBound, double InUpperBound, int InIterat
     return Estimate;
 }
 
-void MonteCarlo_Basic()
+template <typename T>
+void MonteCarlo_Basic(T Func)
 {
-	double LowerBound = 1.0;
+    double LowerBound = 1.0;
     double UpperBound = 5.0;
     int Iterations = 200;
 
-    auto Func = [](double x)
-    {
-        return 10 * exp(-5 * pow(x - 3, 4));        // 12.12295737874928
-    };
-	printf("Function Approximation : %f\n", 12.12295737874928);
+    //auto Func = [](double x)
+    //{
+    //    return 10 * exp(-5 * pow(x - 3, 4));        // 12.12295737874928
+    //};
+    //printf("Function Approximation : %f\n", 12.12295737874928);
 
     double Estimate = MontegarloEstimate(LowerBound, UpperBound, Iterations, Func);
 
@@ -48,24 +49,25 @@ void MonteCarlo_Basic()
         LowerBound, UpperBound, Estimate, Iterations);
 }
 
-void MonteCarlo_ReducingVariance()
+template <typename T>
+void MonteCarlo_ReducingVariance(T Func)
 {
-	double LowerBound = 1.0;
-	double UpperBound = 5.0;
+    double LowerBound = 1.0;
+    double UpperBound = 5.0;
 
-	auto Func = [](double x)
-    {
-        return 10 * exp(-5 * pow(x - 3, 4));        // 12.12295737874928
-    };
-    printf("Function Approximation : %f\n", 12.12295737874928);
+    //auto Func = [](double x)
+    //{
+    //    return 10 * exp(-5 * pow(x - 3, 4));        // 12.12295737874928
+    //};
+    //printf("Function Approximation : %f\n", 12.12295737874928);
 
     for(int i=0;i<5;++i)
     {
         int Iterations = 2 * pow(4, i + 1);   // 8, 32, 128, 512, 2048
 
         // Monte Carlo : Estimate and StandardDeviation
-		double TotalSum = 0.0;
-      double TotalSumSquared = 0.0;
+        double TotalSum = 0.0;
+        double TotalSumSquared = 0.0;
         for(int k=0;k<Iterations;++k)
         {
             double RandNum = LowerBound + (float(rand()) / RAND_MAX) * (UpperBound - LowerBound);
@@ -79,75 +81,77 @@ void MonteCarlo_ReducingVariance()
         double Expected = TotalSum / Iterations;
         double ExpectedSquared = TotalSumSquared / Iterations;
         double StandardDeviation = (UpperBound - LowerBound)
-            * sqrt((ExpectedSquared - (Expected * Expected)) / (Iterations - 1));
+            * sqrt((ExpectedSquared - (Expected * Expected)) / Iterations);
 
         printf("Estimate for %.1f -> %.1f is %.3f, StandardDeviation = %.4f, (%d iterations)\n",
             LowerBound, UpperBound, Estimate, StandardDeviation, Iterations);
     }
 };
 
-void MonteCarlo_ImportanceSampling()
+template <typename T>
+void MonteCarlo_ImportanceSampling(T Func)
 {
-	double LowerBound = 1.0;
-	double UpperBound = 5.0;
-	
-	//Random number generator to generate samples from the companion distribution
-	std::default_random_engine generator;
-	std::normal_distribution<double> distribution(3, 1.0);
+    double LowerBound = 1.0;
+    double UpperBound = 5.0;
+    
+    //Random number generator to generate samples from the companion distribution
+    std::default_random_engine generator;
+    std::normal_distribution<double> distribution(3, 1.0);
 
-	auto Func = [](double x) -> double
-	{
-	    return 10 * exp(-5 * pow(x - 3, 4));        // 12.12295737874928
-	};
-	printf("Function Approximation : %f\n", 12.12295737874928);
+    //auto Func = [](double x) -> double
+    //{
+    //    return 10 * exp(-5 * pow(x - 3, 4));        // 12.12295737874928
+    //};
+    //printf("Function Approximation : %f\n", 12.12295737874928);
 
     auto PDF_Dist_3_1 = [](double x) -> double
     {
         return (1 / pow(2 * 3.14159, 0.5)) * exp(-(0.5) * pow(x - 3, 2));
     };
-	
-	for(int i=0;i<5;++i)
-	{
-	    int Iterations = 2 * pow(4, i + 1);   // 8, 32, 128, 512, 2048
-	
-	    // Monte Carlo : Estimate and StandardDeviation
-		double TotalSum = 0.0;
-	    double TotalSumSquared = 0.0;
-	    for(int k=0;k<Iterations;++k)
-	    {
+    
+    for(int i=0;i<5;++i)
+    {
+        int Iterations = 2 * pow(4, i + 1);   // 8, 32, 128, 512, 2048
+    
+        // Monte Carlo : Estimate and StandardDeviation
+        double TotalSum = 0.0;
+        double TotalSumSquared = 0.0;
+        for(int k=0;k<Iterations;++k)
+        {
             double RandNum = distribution(generator);
             //double Weight = (1 / (UpperBound - LowerBound)) / PDF_Dist_3_1(RandNum);
-			double Weight = 1.0 / PDF_Dist_3_1(RandNum);
-			double FunctionVal = Func(RandNum) * Weight;
-	
-	        TotalSum += FunctionVal;
-	        TotalSumSquared += pow(FunctionVal, 2);
-	    }
-	
-	    // double Estimate = (UpperBound - LowerBound) * TotalSum / Iterations;
-		double Estimate = TotalSum / Iterations;
+            double Weight = 1.0 / PDF_Dist_3_1(RandNum);
+            double FunctionVal = Func(RandNum) * Weight;
+    
+            TotalSum += FunctionVal;
+            TotalSumSquared += pow(FunctionVal, 2);
+        }
+    
+        // double Estimate = (UpperBound - LowerBound) * TotalSum / Iterations;
+        double Estimate = TotalSum / Iterations;
 
-	    double Expected = TotalSum / Iterations;
-	    double ExpectedSquared = TotalSumSquared / Iterations;
-	    //double StandardDeviation = (UpperBound - LowerBound)
-	    //    * sqrt((ExpectedSquared - (Expected * Expected)) / (Iterations - 1));
-		double StandardDeviation = sqrt((ExpectedSquared - (Expected * Expected)) / (Iterations - 1));
+        double Expected = TotalSum / Iterations;
+        double ExpectedSquared = TotalSumSquared / Iterations;
+        //double StandardDeviation = (UpperBound - LowerBound)
+        //    * sqrt((ExpectedSquared - (Expected * Expected)) / Iterations);
+        double StandardDeviation = sqrt((ExpectedSquared - (Expected * Expected)) / Iterations);
 
-	    printf("Estimate for %.1f -> %.1f is %.3f, StandardDeviation = %.4f, (%d iterations)\n",
-	        LowerBound, UpperBound, Estimate, StandardDeviation, Iterations);
-	}
+        printf("Estimate for %.1f -> %.1f is %.3f, StandardDeviation = %.4f, (%d iterations)\n",
+            LowerBound, UpperBound, Estimate, StandardDeviation, Iterations);
+    }
 }
 
-void MonteCarlo_StratifiedSampling()
+template <typename T>
+void MonteCarlo_StratifiedSampling(T Func)
 {
     double LowerBound = 0.0;
     double UpperBound = 20.0;
 
-    auto Func = [](double x)
-    {
-        return exp(-1 * pow(x - 6, 4)) + exp(-1 * pow(x - 14, 4));
-    };
-	printf("Function Approximation : %f\n", 3.625609908221908);
+    //auto Func = [](double x)
+    //{
+    //    return exp(-1 * pow(x - 6, 4)) + exp(-1 * pow(x - 14, 4));
+    //};
+    //printf("Function Approximation : %f\n", 3.625609908221908);
 
     printf("Normal Monte Carlo Integration\n");
     for(int i=0;i<6;++i)
@@ -155,22 +159,22 @@ void MonteCarlo_StratifiedSampling()
         int Iterations = 4 * pow(4, i + 1);
 
         // Monte Carlo : Estimate and StandardDeviation
-		double TotalSum = 0.0;
-		double TotalSumSquared = 0.0;
-		for (int k = 0; k < Iterations; ++k)
-		{
-			double RandNum = LowerBound + (float(rand()) / RAND_MAX) * (UpperBound - LowerBound);
-			double FunctionVal = Func(RandNum);
+        double TotalSum = 0.0;
+        double TotalSumSquared = 0.0;
+        for (int k = 0; k < Iterations; ++k)
+        {
+            double RandNum = LowerBound + (float(rand()) / RAND_MAX) * (UpperBound - LowerBound);
+            double FunctionVal = Func(RandNum);
 
-			TotalSum += FunctionVal;
-			TotalSumSquared += pow(FunctionVal, 2);
-		}
+            TotalSum += FunctionVal;
+            TotalSumSquared += pow(FunctionVal, 2);
+        }
 
-		double Estimate = (UpperBound - LowerBound) * TotalSum / Iterations;
-		double Expected = TotalSum / Iterations;
-		double ExpectedSquared = TotalSumSquared / Iterations;
-		double StandardDeviation = (UpperBound - LowerBound)
-			* sqrt((ExpectedSquared - (Expected * Expected)) / (Iterations - 1));
+        double Estimate = (UpperBound - LowerBound) * TotalSum / Iterations;
+        double Expected = TotalSum / Iterations;
+        double ExpectedSquared = TotalSumSquared / Iterations;
+        double StandardDeviation = (UpperBound - LowerBound)
+            * sqrt((ExpectedSquared - (Expected * Expected)) / Iterations);
 
         printf("Estimate for %.1f -> %.1f is %.3f, STD = %.4f, (%d iterations)\n",
             LowerBound, UpperBound, Estimate, StandardDeviation, Iterations);
@@ -224,7 +228,7 @@ void MonteCarlo_StratifiedSampling()
             ExpectedSquaredArray[k] = TotalSumSquared[k] / SubIterations;
 
             StandardDeviationArray[k] = Increment 
-                * sqrt((ExpectedSquaredArray[k] - ExpectedArray[k] * ExpectedArray[k]) / (Iterations - 1));
+                * sqrt((ExpectedSquaredArray[k] - ExpectedArray[k] * ExpectedArray[k]) / Iterations);
         }
 
         double Estimate = 0.0;
@@ -236,39 +240,125 @@ void MonteCarlo_StratifiedSampling()
             StandardDeviation += (Increment * Increment) * StandardDeviationArray[k] / SubIterations;
         }
 
-		printf("Estimate for %.1f -> %.1f is %.3f, STD = %.4f, (%d iterations)\n",
-			LowerBound, UpperBound, Estimate, StandardDeviation, Iterations);
+        printf("Estimate for %.1f -> %.1f is %.3f, STD = %.4f, (%d iterations)\n",
+            LowerBound, UpperBound, Estimate, StandardDeviation, Iterations);
     }
 }
 
+void ComparisonRimannSumAndMonteCarlo()
+{
+    //float r = 1.0f;
+    //float SurfaceAreaOfSphere = (4.0f) * M_PI * (r * r);
+    //float SurfaceAreaOfHemisphere = SurfaceAreaOfSphere / 2.0f;
+    //printf("Surface area of hemisphere is %f (Radius : %f)\n", SurfaceAreaOfHemisphere, r);
+
+    // Riemann sum of hemisphere's surface area
+    float RimannSum = 0.0f;
+    auto func = [](float InTheta, float InPhi)
+    {
+        return abs(2.0 * cos(InTheta)) * abs(pow(sin(InPhi), 10));
+    };
+
+    int RSSamples = 0;
+    {
+        float sampleDelta = 0.01f;
+
+        for (float phi = sampleDelta; phi <= 2.0 * M_PI; phi += sampleDelta)
+        {
+            for (float theta = sampleDelta; theta <= 0.5 * M_PI; theta += sampleDelta)
+            {
+                RimannSum += func(theta, phi) * sin(theta);
+                ++RSSamples;
+            }
+        }
+        float Ranges = (2.0f * M_PI) * (0.5f * M_PI);  // == M_PI * M_PI
+        RimannSum = RimannSum * (Ranges / float(RSSamples));
+    }
+
+    // MonteCarlo estimate of hemisphere's surface area
+    float Estimate = 0.0f;
+    int MCIterations = RSSamples;
+    {
+        auto funcRand = [](float InLowerBound, float InUpperBound)
+        {
+            return InLowerBound + (float(rand()) / RAND_MAX) * (InUpperBound - InLowerBound);
+        };
+
+        float TotalSum = 0.0;
+        float RandNumber = 0.0;
+        float FunctionVal = 0.0;
+
+        float ThetaLower = 0.0f;
+        float ThetaUpper = 0.5f * M_PI;
+        float PhiLower = 0.0f;
+        float PhiUpper = 2.0f * M_PI;
+        for (int i = 0; i < MCIterations; ++i)
+        {
+            float Theta = funcRand(ThetaLower, ThetaUpper);
+            float Phi = funcRand(PhiLower, PhiUpper);
+
+            TotalSum += func(Theta, Phi) * sin(Theta);
+        }
+
+        float Ranges = (2.0f * M_PI) * (0.5f * M_PI);  // == M_PI * M_PI
+        Estimate = Ranges / MCIterations * TotalSum;
+    }
+
+    //printf("Riemann sum VS MonteCarlo estimate of hemisphere's surface area\n");
+    printf("Riemann sum : %f, NumOfSamples %d\n", RimannSum, RSSamples);
+    printf("MonteCarlo estimate : %f, NumOfSamples %d\n", Estimate, MCIterations);
+}
+
+
 int main()
 {
-    float r = 1.0f;
-    float SphereVolume = (4.0f / 3.0f) * M_PI * (r * r * r);
-    float HemisphereVolume = SphereVolume / 2.0f;
-
     srand(time(nullptr));
 
-    enum eMC { MC_Basic = 0, MC_ReducingVariance, MC_ImportanceSampling, MC_StratifiedSampling };
+    enum eMC { MC_Basic = 0, MC_ReducingVariance, MC_ImportanceSampling, MC_StratifiedSampling, MC_ComparisonRimannSumAndMonteCarlo };
 
-    eMC MCType = MC_ImportanceSampling;
+    eMC MCType = MC_ComparisonRimannSumAndMonteCarlo;
+
+    double (*Func)(double x) = nullptr;
+
+    switch(MCType)
+    {
+    case MC_StratifiedSampling:
+        Func = [](double x) -> double
+        {
+            return exp(-1 * pow(x - 6, 4)) + exp(-1 * pow(x - 14, 4));
+        };
+        printf("Function Approximation : %f\n", 3.625609908221908);
+        break;
+    case MC_ComparisonRimannSumAndMonteCarlo:
+        break;
+    default:
+        Func = [](double x) -> double
+        {
+            return 10 * exp(-5 * pow(x - 3, 4));        // 12.12295737874928
+        };
+        printf("Function Approximation : %f\n", 12.12295737874928);
+        break;
+    }
 
     switch(MCType)
     {
     case MC_Basic:
-		MonteCarlo_Basic();
+        MonteCarlo_Basic(Func);
         break;
     case MC_ReducingVariance:
-		MonteCarlo_ReducingVariance();
+        MonteCarlo_ReducingVariance(Func);
         break;
     case MC_ImportanceSampling:
-		printf("ReducingVariance\n");
-		MonteCarlo_ReducingVariance();
-		printf("ImportanceSampling\n");
-		MonteCarlo_ImportanceSampling();
+        printf("ReducingVariance\n");
+        MonteCarlo_ReducingVariance(Func);
+        printf("ImportanceSampling\n");
+        MonteCarlo_ImportanceSampling(Func);
         break;
     case MC_StratifiedSampling:
-		MonteCarlo_StratifiedSampling();
+        MonteCarlo_StratifiedSampling(Func);
+        break;
+    case MC_ComparisonRimannSumAndMonteCarlo:
+        ComparisonRimannSumAndMonteCarlo();
         break;
     default:
         printf("Invalid Monte Carlo type");
@@ -276,57 +366,4 @@ int main()
     }
 
     return 0;
-}
-
-void TestCode()
-{
-	float irradiance = 0.0f;
-    auto func = [](float InTheta, float InPhi) 
-    { 
-        return 200 * cos(InTheta * InPhi); 
-    };
-
-	{
-		float sampleDelta = 0.001f;
-		float nrSamples = 0.0f;
-
-		for (float phi = sampleDelta; phi <= 2.0 * M_PI; phi += sampleDelta)
-		{
-			for (float theta = sampleDelta; theta <= 0.5 * M_PI; theta += sampleDelta)
-			{
-				irradiance += func(theta, phi) * sin(theta);
-				nrSamples++;
-			}
-		}
-		float Ranges = (2.0f * M_PI) * (0.5f * M_PI);  // == M_PI * M_PI
-		irradiance = irradiance * (Ranges / float(nrSamples));
-	}
-
-    float Estimate = 0.0f;
-    {
-        auto funcRand = [](float InLowerBound, float InUpperBound)
-        {
-            return InLowerBound + (float(rand()) / RAND_MAX) * (InUpperBound - InLowerBound);
-        };
-
-		float TotalSum = 0.0;
-		float RandNumber = 0.0;
-		float FunctionVal = 0.0;
-
-        int Iterations = 1000000;
-        float ThetaLower = 0.0f;
-        float ThetaUpper = 0.5f * M_PI;
-        float PhiLower = 0.0f;
-        float PhiUpper = 2.0f * M_PI;
-		for (int i = 0; i < Iterations; ++i)
-		{
-            float Theta = funcRand(ThetaLower, ThetaUpper);
-            float Phi = funcRand(PhiLower, PhiUpper);
-
-            TotalSum += func(Theta, Phi) * sin(Theta);
-		}
-
-        float Ranges = (2.0f * M_PI) * (0.5f * M_PI);  // == M_PI * M_PI
-		Estimate = Ranges / Iterations * TotalSum;
-    }
 }
