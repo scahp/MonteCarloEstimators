@@ -9,8 +9,63 @@
 #include <corecrt_math_defines.h>
 #include <time.h>
 
+size_t GetSampleCount(int i)
+{
+    return (size_t)(pow(4, i + 1) * 1024);
+}
+
+double Lerp(double A, double B, double t)
+{
+	return A * (1.0 - t) + B * t;
+}
+
+void AddSampleToRunningAverage(double& average, double newValue, size_t sampleCount)
+{
+	// Incremental averaging: lerp from old value to new value by 1/(sampleCount+1)
+	// https://blog.demofox.org/2016/08/23/incremental-averaging/
+	double t = 1.0 / double(sampleCount + 1);
+	average = Lerp(average, newValue, t);
+}
+
+struct VarianceUtil
+{
+	VarianceUtil(double InActualResult)
+		: ActualAnswer(InActualResult)
+	{
+		Reset();
+	}
+
+	void Reset()
+	{
+		AverageOfEstimate = 0.0;
+		CurrentVariance = 0.0;
+		SampleCount = 0;
+	}
+
+	void AddEstimate(double InNewEstimate)
+	{
+		AddSampleToRunningAverage(AverageOfEstimate, InNewEstimate, SampleCount);
+
+		// Variance is "The average of the squared differences from the mean"
+		double difference = AverageOfEstimate - ActualAnswer;
+		double differenceSqured = difference * difference;
+		AddSampleToRunningAverage(CurrentVariance, differenceSqured, SampleCount);
+
+		++SampleCount;
+	}
+
+	double GetVariance() const { return CurrentVariance; }
+	double GetSTD() const { return sqrt(CurrentVariance); }
+	double GetAverageOfEstimate() const { return AverageOfEstimate; }
+
+	const double ActualAnswer;
+	double AverageOfEstimate;
+	double CurrentVariance;
+	size_t SampleCount;
+};
+
 template <typename T>
-double SimpleMonteCarlo(T Func, size_t InSampleCount = 10000, double* pVariance = nullptr)
+double SimpleMonteCarlo(T Func, size_t InSampleCount = 10000, VarianceUtil* pVariance = nullptr)
 {
     size_t numSamples = InSampleCount;
 	double rangeMin = 0;
@@ -20,31 +75,27 @@ double SimpleMonteCarlo(T Func, size_t InSampleCount = 10000, double* pVariance 
     std::mt19937 mt(rd());
     std::uniform_real_distribution<double> dist(rangeMin, rangeMax);
 
-    double ySumSquared = 0.0;
+	double width = rangeMax - rangeMin;
+
     double ySum = 0.0;
     for (size_t i = 1; i < numSamples; ++i)
     {
         double x = dist(mt);
         double y = Func(x);
         ySum += y;
-        ySumSquared += y * y;
+
+		if (pVariance)
+			pVariance->AddEstimate(width * y);
     }
 
     double yAverage = ySum / double(numSamples);
-
-    double width = rangeMax - rangeMin;
     double height = yAverage;
-
-	if (pVariance)
-	{
-		*pVariance = width * abs(ySumSquared / double(numSamples) - (yAverage * yAverage));
-	}
 
     return width * height;
 }
 
 template <typename T, typename P, typename I>
-double GeneralMonteCarlo(T Func, P PDF, I InverseCDF, size_t InSampleCount = 10000, double* pVariance = nullptr)
+double GeneralMonteCarlo(T Func, P PDF, I InverseCDF, size_t InSampleCount = 10000, VarianceUtil* pVariance = nullptr)
 {
     size_t numSamples = InSampleCount;
 
@@ -52,7 +103,6 @@ double GeneralMonteCarlo(T Func, P PDF, I InverseCDF, size_t InSampleCount = 100
 	std::mt19937 mt(rd());
 	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 사이의 랜덤값을 뽑아냄.
 
-    double estimateSumSquared = 0.0;
     double estimateSum = 0.0;
     for (size_t i = 1; i <= numSamples; ++i)
     {
@@ -63,36 +113,31 @@ double GeneralMonteCarlo(T Func, P PDF, I InverseCDF, size_t InSampleCount = 100
         double estimate = y / pdf;
 
         estimateSum += estimate;
-        estimateSumSquared += estimate * estimate;
+        
+        if (pVariance)
+            pVariance->AddEstimate(estimate);
     }
     double estimateAverage = estimateSum / double(numSamples);
     
-    if (pVariance)
-    {
-        *pVariance = abs(estimateSumSquared / double(numSamples) - (estimateAverage * estimateAverage));
-    }
-
     return estimateAverage;
 }
 
 template <typename T, typename P, typename I>
-double ImportanceSampledMonteCarlo(T Func, P PDF, I InverseCDF, size_t InNumSamples, double* pVariance = nullptr)
+double ImportanceSampledMonteCarlo(T Func, P PDF, I InverseCDF, size_t InNumSamples, VarianceUtil* pVariance = nullptr)
 {
     return GeneralMonteCarlo(Func, PDF, InverseCDF, InNumSamples, pVariance);
 }
 
 template <typename T, typename P1, typename I1, typename P2, typename I2>
-double MultipleImportanceSampledMonteCarlo(T Func, P1 PDF1, I1 InverseCDF1, P2 PDF2, I2 InverseCDF2, size_t InNumSamples, double* pVariance = nullptr)
+double MultipleImportanceSampledMonteCarlo(T Func, P1 PDF1, I1 InverseCDF1, P2 PDF2, I2 InverseCDF2
+    , size_t InNumSamples, VarianceUtil* pVariance = nullptr)
 {
-    // y=sin(x)*2x from 0 to pi
-
 	size_t numSamples = InNumSamples;
 
 	std::random_device rd;
 	std::mt19937 mt(rd());
 	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 사이의 랜덤값을 뽑아냄.
 
-    double estimateSumSquared = 0.0;
 	double estimateSum = 0.0;
     for (size_t i = 1; i <= numSamples; ++i)
     {
@@ -108,21 +153,19 @@ double MultipleImportanceSampledMonteCarlo(T Func, P1 PDF1, I1 InverseCDF1, P2 P
 
         double estimate = y1 / (pdf11 + pdf12) + y2 / (pdf21 + pdf22);
         estimateSum += estimate;
-        estimateSumSquared += estimate * estimate;
+
+		if (pVariance)
+			pVariance->AddEstimate(estimate);
     }
 
 	double estimateAverage = estimateSum / double(numSamples);
-
-	if (pVariance)
-	{
-        *pVariance = abs(estimateSumSquared / double(numSamples) - (estimateAverage * estimateAverage));
-	}
 
 	return estimateAverage;
 }
 
 template <typename T, typename P1, typename I1, typename P2, typename I2>
-double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 InverseCDF1, P2 PDF2, I2 InverseCDF2, size_t InNumSamples, double* pVariance = nullptr)
+double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 InverseCDF1, P2 PDF2, I2 InverseCDF2
+    , size_t InNumSamples, VarianceUtil* pVariance = nullptr)
 {
     // y=sin(x)*2x from 0 to pi
 
@@ -132,7 +175,6 @@ double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 Inve
 	std::mt19937 mt(rd());
 	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 사이의 랜덤값을 뽑아냄.
 
-    double estimateSumSquared = 0.0;
 	double estimateSum = 0.0;
 	for (size_t i = 1; i <= numSamples; ++i)
 	{
@@ -157,15 +199,12 @@ double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 Inve
             : (Func(x2) / pdf22) * (weight2 / (1.0 - weight1Chance));
 
         estimateSum += estimate;
-        estimateSumSquared += estimate * estimate;
+
+		if (pVariance)
+			pVariance->AddEstimate(estimate);
 	}
 
 	double estimateAverage = estimateSum / double(numSamples);
-
-	if (pVariance)
-	{
-        *pVariance = abs(estimateSumSquared / double(numSamples) - (estimateAverage * estimateAverage));
-	}
 
 	return estimateAverage;
 }
@@ -244,7 +283,8 @@ int main()
 
     // 1. SimpleMonteCarlo
     {
-        double actualResult = 1.5708;
+        double actualResult = 1.570796326794897;
+        VarianceUtil variance(actualResult);
 		printf("[Integration of 'sin(x) * sin(x)' between 0 and PI is %lf]\n", actualResult);
 		
         auto Func = [](double x) -> double
@@ -255,13 +295,13 @@ int main()
         printf("-----------SimpleMonteCarlo-----------\n");
         for(int i=0;i<5;++i)
         {
-            size_t numSampleCount = (size_t)(pow(4, i + 1) * 1024);
+            size_t numSampleCount = GetSampleCount(i);
 
-            double simpleMonteCarlo_Var = 0.0;
-            double simpleMonteCarlo = SimpleMonteCarlo(Func, numSampleCount, &simpleMonteCarlo_Var);
+            variance.Reset();
+            double simpleMonteCarlo = SimpleMonteCarlo(Func, numSampleCount, &variance);
             printf("Estimate : %lf(Diff : %lf), \tVariance : %lf, \tSTD : %lf\t[Samples : %zu]\n", simpleMonteCarlo
                 , abs(simpleMonteCarlo - actualResult)
-                , simpleMonteCarlo_Var, sqrt(simpleMonteCarlo_Var), numSampleCount);
+                , variance.GetVariance(), variance.GetSTD(), numSampleCount);
         }
 
 		printf("\n");
@@ -281,13 +321,13 @@ int main()
             printf("-----------GeneralMonteCarlo-----------\n");
             for (int i = 0; i < 5; ++i)
             {
-                size_t numSampleCount = (size_t)(pow(4, i + 1) * 1024);
+                size_t numSampleCount = GetSampleCount(i);
 
-                double generalMonteCarlo_Var = 0.0;
-                double generalMonteCarlo = GeneralMonteCarlo(Func, PDF, InverseCDF, numSampleCount, &generalMonteCarlo_Var);
+                variance.Reset();
+                double generalMonteCarlo = GeneralMonteCarlo(Func, PDF, InverseCDF, numSampleCount, &variance);
                 printf("Estimate : %lf(Diff : %lf), \tVariance : %lf, \tSTD : %lf\t[Samples : %zu]\n", generalMonteCarlo
                     , abs(generalMonteCarlo - actualResult)
-                    , generalMonteCarlo_Var, sqrt(generalMonteCarlo_Var), numSampleCount);
+                    , variance.GetVariance(), variance.GetSTD(), numSampleCount);
             }
         }
 
@@ -311,20 +351,60 @@ int main()
 			printf(" - PDF is 'sin(x) / 2.0', \t\tCDF is '2.0 * asin(sqrt(x))'\n");
             for (int i = 0; i < 5; ++i)
             {
-                size_t numSampleCount = (size_t)(pow(4, i + 1) * 1024);
+                size_t numSampleCount = GetSampleCount(i);
 
-                double importanceSampledMonteCarlo_Var = 0.0;
-                double importanceSampledMonteCarlo = ImportanceSampledMonteCarlo(Func, PDF, InverseCDF, numSampleCount, &importanceSampledMonteCarlo_Var);
+				variance.Reset();
+                double importanceSampledMonteCarlo = ImportanceSampledMonteCarlo(Func, PDF, InverseCDF, numSampleCount, &variance);
                 printf("Estimate : %lf(Diff : %lf), \tVariance : %lf, \tSTD : %lf\t[Samples : %zu]\n", importanceSampledMonteCarlo
                     , abs(importanceSampledMonteCarlo - actualResult)
-                    , importanceSampledMonteCarlo_Var, sqrt(importanceSampledMonteCarlo_Var), numSampleCount);
+                    , variance.GetVariance(), variance.GetSTD(), numSampleCount);
             }
         }
     }
     printf("\n");
 
+	// 4. ImportanceSampled MonteCarlo - PDF is match with Func
+	{
+		double actualResult = 2.0;
+		VarianceUtil variance(actualResult);
+
+		auto InverseCDF = [](double x) -> double
+		{
+			return 2.0 * asin(sqrt(x));     // CDF는 PDF의 적분, 즉, CDF는 sin(x) / 2.0 의 적분
+		};
+
+		auto PDF = [](double x) -> double
+		{
+			// sin(x) 를 PDF로 선택했고, 
+			// 0~PI 구간에서 적분하면 총 2.0이 나오므로, PDF의 정의에 따라 0~PI 구간의 적분이 1.0이 되도록 정규화 시켜줌
+			return sin(x) / 2.0;
+		};
+
+		auto FuncMatchWithPDF = [](double x) -> double
+		{
+			return sin(x);         // 적분 대상 함수
+		};
+
+		printf("-----------ImportanceSampled MonteCarlo - PDF is match with Func-----------\n");
+		printf("[Integration of 'sin(x)' between 0 and PI is %lf]\n", actualResult);
+		printf(" - PDF is 'sin(x) / 2.0', \t\tCDF is '2.0 * asin(sqrt(x))'\n");
+		for (int i = 0; i < 5; ++i)
+		{
+            size_t numSampleCount = GetSampleCount(i);
+
+			variance.Reset();
+			double importanceSampledMonteCarlo = ImportanceSampledMonteCarlo(FuncMatchWithPDF, PDF, InverseCDF, numSampleCount, &variance);
+			printf("Estimate : %lf(Diff : %lf), \tVariance : %lf, \tSTD : %lf\t[Samples : %zu]\n", importanceSampledMonteCarlo
+				, abs(importanceSampledMonteCarlo - actualResult)
+				, variance.GetVariance(), variance.GetSTD(), numSampleCount);
+		}
+	}
+
+    printf("\n");
+
     {
-        double actualResult = 6.28319;
+        double actualResult = 6.283185307179586;
+        VarianceUtil variance(actualResult);
 		printf("[Integration of 'sin(x) * 2.0 * x' between 0 and PI is %lf]\n", actualResult);
 		printf(" - PDF1 is 'sin(x) / 2.0', \t\tCDF1 is '2.0 * asin(sqrt(x))'\n");
 		printf(" - PDF2 is 'x * 2.0 / (M_PI * M_PI)', \tCDF2 is 'M_PI * sqrt(x)'\n");
@@ -362,13 +442,13 @@ int main()
 		printf("-----------GeneralMonteCarlo-----------\n");
 		for (int i = 0; i < 5; ++i)
 		{
-			size_t numSampleCount = (size_t)(pow(4, i + 1) * 1024);
+            size_t numSampleCount = GetSampleCount(i);
 
-			double generalMonteCarlo_Var = 0.0;
-			double generalMonteCarlo = GeneralMonteCarlo(Func, PDF1, InverseCDF1, numSampleCount, &generalMonteCarlo_Var);
+            variance.Reset();
+			double generalMonteCarlo = GeneralMonteCarlo(Func, PDF1, InverseCDF1, numSampleCount, &variance);
 			printf("Estimate : %lf(Diff : %lf), \tVariance : %lf, \tSTD : %lf\t[Samples : %zu]\n", generalMonteCarlo
                 , abs(generalMonteCarlo - actualResult)
-                , generalMonteCarlo_Var, sqrt(generalMonteCarlo_Var), numSampleCount);
+                , variance.GetVariance(), variance.GetSTD(), numSampleCount);
 		}
 
         printf("\n");
@@ -376,13 +456,13 @@ int main()
         printf("-----------MultipleImportanceSampledMonteCarlo-----------\n");
 		for (int i = 0; i < 5; ++i)
 		{
-			size_t numSampleCount = (size_t)(pow(4, i + 1) * 1024);
+            size_t numSampleCount = GetSampleCount(i);
          
-            double multipleImportanceSampledMonteCarlo_Var = 0.0;
-            double multipleImportanceSampledMonteCarlo = MultipleImportanceSampledMonteCarlo(Func, PDF1, InverseCDF1, PDF2, InverseCDF2, numSampleCount, &multipleImportanceSampledMonteCarlo_Var);
+            variance.Reset();
+            double multipleImportanceSampledMonteCarlo = MultipleImportanceSampledMonteCarlo(Func, PDF1, InverseCDF1, PDF2, InverseCDF2, numSampleCount, &variance);
             printf("Estimate : %lf(Diff : %lf), \tVariance : %lf, \tSTD : %lf\t[Samples : %zu]\n", multipleImportanceSampledMonteCarlo
                 , abs(multipleImportanceSampledMonteCarlo - actualResult)
-                , multipleImportanceSampledMonteCarlo_Var, sqrt(multipleImportanceSampledMonteCarlo_Var), numSampleCount);
+                , variance.GetVariance(), variance.GetSTD(), numSampleCount);
         }
 
         printf("\n");
@@ -390,14 +470,14 @@ int main()
         printf("-----------MultipleImportanceSampledMonteCarlo_OneSampleMIS-----------\n");
 		for (int i = 0; i < 5; ++i)
 		{
-			size_t numSampleCount = (size_t)(pow(4, i + 1) * 1024);
+            size_t numSampleCount = GetSampleCount(i);
 
-            double multipleImportanceSampledMonteCarlo_OneSampleMIS_Var = 0.0;
+            variance.Reset();
             double multipleImportanceSampledMonteCarlo_OneSampleMIS
-                = MultipleImportanceSampledMonteCarlo_OneSampleMIS(Func, PDF1, InverseCDF1, PDF2, InverseCDF2, numSampleCount, &multipleImportanceSampledMonteCarlo_OneSampleMIS_Var);
+                = MultipleImportanceSampledMonteCarlo_OneSampleMIS(Func, PDF1, InverseCDF1, PDF2, InverseCDF2, numSampleCount, &variance);
 			printf("Estimate : %lf(Diff : %lf), \tVariance : %lf, \tSTD : %lf\t[Samples : %zu]\n", multipleImportanceSampledMonteCarlo_OneSampleMIS
                 , abs(multipleImportanceSampledMonteCarlo_OneSampleMIS - actualResult)
-				, multipleImportanceSampledMonteCarlo_OneSampleMIS_Var, sqrt(multipleImportanceSampledMonteCarlo_OneSampleMIS_Var), numSampleCount);
+				, variance.GetVariance(), variance.GetSTD(), numSampleCount);
         }
     }
 
