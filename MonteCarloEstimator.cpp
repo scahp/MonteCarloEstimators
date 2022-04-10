@@ -167,8 +167,6 @@ template <typename T, typename P1, typename I1, typename P2, typename I2>
 double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 InverseCDF1, P2 PDF2, I2 InverseCDF2
     , size_t InNumSamples, VarianceUtil* pVariance = nullptr)
 {
-    // y=sin(x)*2x from 0 to pi
-
 	size_t numSamples = InNumSamples;
 
 	std::random_device rd;
@@ -211,11 +209,6 @@ double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 Inve
 
 void ComparisonRimannSumAndMonteCarlo()
 {
-    //float r = 1.0f;
-    //float SurfaceAreaOfSphere = (4.0f) * M_PI * (r * r);
-    //float SurfaceAreaOfHemisphere = SurfaceAreaOfSphere / 2.0f;
-    //printf("Surface area of hemisphere is %f (Radius : %f)\n", SurfaceAreaOfHemisphere, r);
-
     // Riemann sum of hemisphere, 2 dimension integration
     double actualResult = 1.54625;
     printf("[ActualResult : %lf]\n", actualResult);
@@ -439,6 +432,7 @@ int main()
             return sin(x) * 2.0 * x;
         };
 
+        // 5. GeneralMonteCarlo with multiple functions
 		printf("-----------GeneralMonteCarlo-----------\n");
 		for (int i = 0; i < 5; ++i)
 		{
@@ -453,6 +447,7 @@ int main()
 
         printf("\n");
 
+        // 6. MultipleImportanceSampledMonteCarlo with multiple functions
         printf("-----------MultipleImportanceSampledMonteCarlo-----------\n");
 		for (int i = 0; i < 5; ++i)
 		{
@@ -467,6 +462,7 @@ int main()
 
         printf("\n");
 
+        // 7. MultipleImportanceSampledMonteCarlo_OneSampleMIS with multiple functions
         printf("-----------MultipleImportanceSampledMonteCarlo_OneSampleMIS-----------\n");
 		for (int i = 0; i < 5; ++i)
 		{
