@@ -1,4 +1,4 @@
-// This code was modified from 
+ï»¿// This code was modified from 
 // - https://blog.demofox.org/2018/06/12/monte-carlo-integration-explanation-in-1d/
 // - https://blog.demofox.org/2020/11/25/multiple-importance-sampling-in-1d/
 
@@ -101,7 +101,7 @@ double GeneralMonteCarlo(T Func, P PDF, I InverseCDF, size_t InSampleCount = 100
 
 	std::random_device rd;
 	std::mt19937 mt(rd());
-	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 »çÀÌÀÇ ·£´ı°ªÀ» »Ì¾Æ³¿.
+	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 ì‚¬ì´ì˜ ëœë¤ê°’ì„ ë½‘ì•„ëƒ„.
 
     double estimateSum = 0.0;
     for (size_t i = 1; i <= numSamples; ++i)
@@ -136,7 +136,7 @@ double MultipleImportanceSampledMonteCarlo(T Func, P1 PDF1, I1 InverseCDF1, P2 P
 
 	std::random_device rd;
 	std::mt19937 mt(rd());
-	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 »çÀÌÀÇ ·£´ı°ªÀ» »Ì¾Æ³¿.
+	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 ì‚¬ì´ì˜ ëœë¤ê°’ì„ ë½‘ì•„ëƒ„.
 
 	double estimateSum = 0.0;
     for (size_t i = 1; i <= numSamples; ++i)
@@ -171,7 +171,7 @@ double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 Inve
 
 	std::random_device rd;
 	std::mt19937 mt(rd());
-	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 »çÀÌÀÇ ·£´ı°ªÀ» »Ì¾Æ³¿.
+	std::uniform_real_distribution<double> dist(0.0, 1.0);      // 0.0~1.0 ì‚¬ì´ì˜ ëœë¤ê°’ì„ ë½‘ì•„ëƒ„.
 
 	double estimateSum = 0.0;
 	for (size_t i = 1; i <= numSamples; ++i)
@@ -191,7 +191,7 @@ double MultipleImportanceSampledMonteCarlo_OneSampleMIS(T Func, P1 PDF1, I1 Inve
         double totalWeight = weight1 + weight2;
         double weight1Chance = weight1 / totalWeight;
 
-        // FunctionÀ» µüÇÑ¹ø¸¸ °è»êÇÏ±â ¶§¹®¿¡ Func °è»ê¿¡ ºÎ´ãÀÌ °¡´Â °æ¿ì À¯¸®ÇÔ.
+        // Functionì„ ë”±í•œë²ˆë§Œ ê³„ì‚°í•˜ê¸° ë•Œë¬¸ì— Func ê³„ì‚°ì— ë¶€ë‹´ì´ ê°€ëŠ” ê²½ìš° ìœ ë¦¬í•¨.
         double estimate = dist(mt) < weight1Chance
             ? (Func(x1) / pdf11) * (weight1 / weight1Chance)
             : (Func(x2) / pdf22) * (weight2 / (1.0 - weight1Chance));
@@ -282,7 +282,7 @@ int main()
 		
         auto Func = [](double x) -> double
 		{
-			return sin(x) * sin(x);         // ÀûºĞ ´ë»ó ÇÔ¼ö
+			return sin(x) * sin(x);         // ì ë¶„ ëŒ€ìƒ í•¨ìˆ˜
 		};
 
         printf("-----------SimpleMonteCarlo-----------\n");
@@ -303,12 +303,12 @@ int main()
         {
             auto InverseCDF = [](double x) -> double
             {
-                return x * M_PI;                // CDF ´Â PDFÀÇ ÀûºĞ
+                return x * M_PI;                // CDF ëŠ” PDFì˜ ì •ì ë¶„ì´ë©°, ì ë¶„ ì‹œ êµ¬ê°„ì€ [0, ì„ì˜ì˜ ë³€ìˆ˜] ë¡œ ë‘ê³  ì ë¶„ í•¨.
             };
 
             auto PDF = [](double x) -> double
             {
-                return 1.0 / M_PI;              // ÀûºĞ ¹üÀ§ [0.0, M_PI]
+                return 1.0 / M_PI;              // ì ë¶„ ë²”ìœ„ [0.0, M_PI]
             };
 
             printf("-----------GeneralMonteCarlo-----------\n");
@@ -330,13 +330,13 @@ int main()
         {
             auto InverseCDF = [](double x) -> double
             {
-                return 2.0 * asin(sqrt(x));     // CDF´Â PDFÀÇ ÀûºĞ, Áï, CDF´Â sin(x) / 2.0 ÀÇ ÀûºĞ
+                return 2.0 * asin(sqrt(x));     // CDFëŠ” PDFì˜ ì •ì ë¶„, ì¦‰, CDFëŠ” sin(x) / 2.0 ì˜ ì •ì ë¶„ì´ê³ , ì ë¶„ êµ¬ê°„ì€ [0, ì„ì˜ì˜ ë³€ìˆ˜].
             };
 
             auto PDF = [](double x) -> double
             {
-                // sin(x) ¸¦ PDF·Î ¼±ÅÃÇß°í, 
-                // 0~PI ±¸°£¿¡¼­ ÀûºĞÇÏ¸é ÃÑ 2.0ÀÌ ³ª¿À¹Ç·Î, PDFÀÇ Á¤ÀÇ¿¡ µû¶ó 0~PI ±¸°£ÀÇ ÀûºĞÀÌ 1.0ÀÌ µÇµµ·Ï Á¤±ÔÈ­ ½ÃÄÑÁÜ
+                // sin(x) ë¥¼ PDFë¡œ ì„ íƒí–ˆê³ , 
+                // 0~PI êµ¬ê°„ì—ì„œ ì ë¶„í•˜ë©´ ì´ 2.0ì´ ë‚˜ì˜¤ë¯€ë¡œ, PDFì˜ ì •ì˜ì— ë”°ë¼ 0~PI êµ¬ê°„ì˜ ì ë¶„ì´ 1.0ì´ ë˜ë„ë¡ ì •ê·œí™” ì‹œì¼œì¤Œ
                 return sin(x) / 2.0;
             };
 
@@ -363,19 +363,19 @@ int main()
 
 		auto InverseCDF = [](double x) -> double
 		{
-			return 2.0 * asin(sqrt(x));     // CDF´Â PDFÀÇ ÀûºĞ, Áï, CDF´Â sin(x) / 2.0 ÀÇ ÀûºĞ
+			return 2.0 * asin(sqrt(x));     // CDFëŠ” PDFì˜ ì •ì ë¶„, ì¦‰, CDFëŠ” sin(x) / 2.0 ì˜ ì •ì ë¶„ì´ê³ , ì ë¶„ êµ¬ê°„ì€ [0, ì„ì˜ì˜ ë³€ìˆ˜].
 		};
 
 		auto PDF = [](double x) -> double
 		{
-			// sin(x) ¸¦ PDF·Î ¼±ÅÃÇß°í, 
-			// 0~PI ±¸°£¿¡¼­ ÀûºĞÇÏ¸é ÃÑ 2.0ÀÌ ³ª¿À¹Ç·Î, PDFÀÇ Á¤ÀÇ¿¡ µû¶ó 0~PI ±¸°£ÀÇ ÀûºĞÀÌ 1.0ÀÌ µÇµµ·Ï Á¤±ÔÈ­ ½ÃÄÑÁÜ
+			// sin(x) ë¥¼ PDFë¡œ ì„ íƒí–ˆê³ , 
+			// 0~PI êµ¬ê°„ì—ì„œ ì ë¶„í•˜ë©´ ì´ 2.0ì´ ë‚˜ì˜¤ë¯€ë¡œ, PDFì˜ ì •ì˜ì— ë”°ë¼ 0~PI êµ¬ê°„ì˜ ì ë¶„ì´ 1.0ì´ ë˜ë„ë¡ ì •ê·œí™” ì‹œì¼œì¤Œ
 			return sin(x) / 2.0;
 		};
 
 		auto FuncMatchWithPDF = [](double x) -> double
 		{
-			return sin(x);         // ÀûºĞ ´ë»ó ÇÔ¼ö
+			return sin(x);         // ì ë¶„ ëŒ€ìƒ í•¨ìˆ˜
 		};
 
 		printf("-----------ImportanceSampled MonteCarlo - PDF is match with Func-----------\n");
@@ -481,8 +481,6 @@ int main()
 
     printf("-----------Comparison Between RimannSum and MonteCarlo-----------\n");
 	ComparisonRimannSumAndMonteCarlo();
-
-    return 0;
 
     return 0;
 }
